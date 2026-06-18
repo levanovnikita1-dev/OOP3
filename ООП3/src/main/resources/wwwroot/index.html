@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Интерактивная Арена RPG — Лабораторная 3</title>
+    <style>
+        body { font-family: monospace; background-color: #ffffff; color: #000000; padding: 20px; }
+        .container { max-width: 950px; margin: 0 auto; }
+        h1, h2 { border-bottom: 2px solid #000000; padding-bottom: 5px; margin-top: 30px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; margin-top: 10px; }
+        input, select { display: block; width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #000000; font-family: monospace; box-sizing: border-box; }
+        button { background-color: #000000; color: #ffffff; border: 1px solid #000000; padding: 10px 20px; cursor: pointer; font-family: monospace; margin-bottom: 15px; }
+        button:hover { background-color: #444444; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 30px; }
+        th, td { border: 1px solid #000000; padding: 8px; text-align: left; }
+        th { background-color: #eaeaea; }
+        
+        .flex-actions { display: flex; gap: 15px; align-items: flex-end; margin-bottom: 25px; background: #ffffff; padding: 15px; border: 1px solid #000000; }
+        .flex-actions div { flex: 1; }
+        .btn-panel { display: none; gap: 5px; flex-direction: column; }
+
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #ffffff; margin: 5% auto; padding: 20px; border: 2px solid #000000; width: 450px; box-shadow: 5px 5px 0px #000000; }
+        .close-btn { float: right; font-weight: bold; cursor: pointer; font-size: 20px; }
+        .hero-fields { display: none; margin-top: 15px; border-top: 1px dashed #000000; padding-top: 15px; }
+        .checkbox-container { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; margin-top: 10px; }
+        .checkbox-container input { width: auto; margin-bottom: 0; }
+        
+        .btn-delete { background-color: #ffffff; color: #000000; border: 1px solid #000000; padding: 4px 8px; font-size: 12px; margin: 0; }
+        .btn-delete:hover { background-color: #000000; color: #ffffff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Интерактивная Арена: Динамическое управление способностями</h1>
+
+        <button onclick="openModal()" style="font-size: 16px; padding: 12px 24px;">➕ Создать нового героя</button>
+
+        <h2>Список зарегистрированных персонажей (humans)</h2>
+        <table id="heroesTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Имя</th>
+                    <th>Класс</th>
+                    <th>Уровень</th>
+                    <th>HP (Здоровье)</th>
+                    <th>Урон</th>
+                    <th>Статус баффа/щита</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <h2>Провести игровой ход (Панель действий)</h2>
+        <div class="flex-actions">
+            <div>
+                <label>Кто действует:</label>
+                <select id="attackerSelect" onchange="updateAvailableSkills()"></select>
+            </div>
+            <div>
+                <label>Цель действия:</label>
+                <select id="targetSelect"></select>
+            </div>
+            
+            <div id="warriorButtons" class="btn-panel">
+                <button onclick="executeAction('attack')" style="width: 100%;">⚔️ Атаковать</button>
+                <button onclick="executeAction('buff')" style="width: 100%;">🛡️ Отразить урон (Вкл. Щит)</button>
+                <button onclick="executeAction('block')" style="width: 100%;">🧱 Заблокировать удар</button>
+            </div>
+
+            <div id="healerButtons" class="btn-panel">
+                <button onclick="executeAction('heal')" style="width: 100%;">💚 Исцелить</button>
+                <button onclick="executeAction('resurrect')" style="width: 100%;">✨ Воскресить павшего</button>
+                <button onclick="executeAction('magicAttack')" style="width: 100%;">🔮 Магическая атака</button>
+            </div>
+        </div>
+
+        <h2>Журнал игровых событий боевой симуляции (action_logs)</h2>
+        
+        <div style="background: #ffffff; padding: 15px; border: 1px solid #000000; margin-bottom: 15px;">
+            <div style="display: flex; gap: 15px; align-items: flex-end;">
+                <div style="flex: 1;">
+                    <label style="margin-top: 0;">Поиск истории по точному ID героя:</label>
+                    <input type="number" id="searchHeroIdInput" placeholder="Введите численный ID (например: 1)" oninput="loadLogs()">
+                </div>
+                <div>
+                    <button onclick="loadLogs()" style="margin: 0; width: 120px;">🔍 Поиск</button>
+                </div>
+                <div>
+                    <button onclick="clearLogFilter()" style="margin: 0; background-color: #eaeaea; color: #000000; width: 150px;">❌ Сбросить ID</button>
+                </div>
+            </div>
+        </div>
+
+        <table id="logsTable">
+            <thead><tr><th>ID хода</th><th>Время ходов</th><th>Инициатор</th><th>Событие на поле боя</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="heroModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h3 style="margin-top: 0; border-bottom: 1px solid #000; padding-bottom: 5px;">Регистрация игрового персонажа</h3>
+            
+            <label for="heroClassSelect">Игровой класс персонажа:</label>
+            <select id="heroClassSelect" onchange="toggleHeroFields()">
+                <option value="" disabled selected>-- Выберите класс --</option>
+                <option value="warrior">Воин (Warrior)</option>
+                <option value="healer">Лекарь (Healer)</option>
+            </select>
+
+            <div id="generalFields" style="display: none; margin-top: 10px;">
+                <label for="heroName">Имя персонажа:</label>
+                <input type="text" id="heroName" placeholder="Введите имя">
+                <label for="heroLevel">Начальный уровень:</label>
+                <input type="number" id="heroLevel" value="1" min="1">
+                <label for="heroHp">Очки здоровья (HP):</label>
+                <input type="number" id="heroHp" value="100" min="0">
+                <label for="heroDamage">Показатель базового урона (Damage):</label>
+                <input type="number" id="heroDamage" value="15" min="0">
+            </div>
+
+            <div id="warriorFields" class="hero-fields">
+                <label for="wWeapon">Тип боевого оружия:</label>
+                <input type="text" id="wWeapon" placeholder="Например: Меч">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="wBuff">
+                    <label for="wBuff" style="margin-top:0; display:inline;">Боевой Бафф (Постоянный урон x1.5)</label>
+                </div>
+                <button onclick="addWarrior()" style="width: 100%;">Создать и сохранить воина</button>
+            </div>
+
+            <div id="healerFields" class="hero-fields">
+                <label for="hPower">Сила магического исцеления (Heal Power):</label>
+                <input type="number" id="hPower" value="20" min="0">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="hResurrect">
+                    <label for="hResurrect" style="margin-top:0; display:inline;">Способен воскрешать павших (при 0 HP)</label>
+                </div>
+                <button onclick="addHealer()" style="width: 100%;">Создать и сохранить лекаря</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let globalHeroes = [];
+
+        document.addEventListener("DOMContentLoaded", () => { loadData(); });
+
+        function openModal() { document.getElementById("heroModal").style.display = "block"; }
+        function closeModal() { document.getElementById("heroModal").style.display = "none"; resetForm(); }
+
+        function toggleHeroFields() {
+            const classType = document.getElementById("heroClassSelect").value;
+            document.getElementById("generalFields").style.display = "block";
+            if (classType === "warrior") {
+                document.getElementById("warriorFields").style.display = "block";
+                document.getElementById("healerFields").style.display = "none";
+            } else if (classType === "healer") {
+                document.getElementById("warriorFields").style.display = "none";
+                document.getElementById("healerFields").style.display = "block";
+            }
+        }
+
+        function resetForm() {
+            document.getElementById("heroClassSelect").value = "";
+            document.getElementById("generalFields").style.display = "none";
+            document.getElementById("warriorFields").style.display = "none";
+            document.getElementById("healerFields").style.display = "none";
+            document.querySelectorAll("#heroModal input").forEach(i => i.type === "checkbox" ? i.checked = false : i.value = (i.id==='heroLevel'?'1':i.id==='heroHp'?'100':i.id==='heroDamage'?'15':i.id==='hPower'?'20':""));
+        }
+
+        function loadData() {
+            fetch('/api/heroes')
+                .then(res => res.json())
+                .then(heroes => {
+                    globalHeroes = heroes;
+                    const heroesTbody = document.querySelector("#heroesTable tbody");
+                    heroesTbody.innerHTML = "";
+                    heroes.forEach(h => {
+                        const hpStatus = h.hp === 0 ? "<span style='text-decoration: line-through; color:gray;'>Погиб (0)</span>" : h.hp;
+                        
+                        let statusText = "Нет эффектов";
+                        if (h.heroType === 'Warrior') {
+                            let currentPos = Number(h.position);
+                            if (h.hasBuff) statusText = "🔥 Крит. удар активен (Урон x1.5)";
+                            if (currentPos === 1) statusText = "🧱 Блок активен (-50% урона)";
+                            if (currentPos === 2) statusText = "🛡️ Отражение готово (Вернет 30%)";
+                        }
+
+                        heroesTbody.innerHTML += `<tr>
+                            <td>${h.id}</td>
+                            <td><strong>${h.name}</strong></td>
+                            <td>${h.heroType === 'Warrior' ? '🛡️ Воин' : '💚 Лекарь'}</td>
+                            <td>${h.level}</td>
+                            <td>${hpStatus}</td>
+                            <td>${h.damage}</td>
+                            <td><small>${statusText}</small></td>
+                            <td>
+                                <button class="btn-delete" onclick="deleteHero(${h.id})">❌ Удалить</button>
+                            </td>
+                        </tr>`;
+                    });
+
+                    const attSelect = document.getElementById("attackerSelect");
+                    const tarSelect = document.getElementById("targetSelect");
+                    
+                    let options = "<option value='' disabled selected>-- Выберите героя --</option>";
+                    heroes.forEach(h => {
+                        options += `<option value="${h.id}">ID: ${h.id} | ${h.name} [${h.heroType === 'Warrior' ? 'Воин' : 'Лекарь'}]</option>`;
+                    });
+                    
+                    attSelect.innerHTML = options;
+                    tarSelect.innerHTML = options;
+                    
+                    updateAvailableSkills();
+                });
+
+            loadLogs();
+        }
+
+        function loadLogs() {
+            const heroId = document.getElementById("searchHeroIdInput").value;
+            
+            let url = '/api/logs';
+            if (heroId) {
+                url += `?heroId=${heroId}`;
+            }
+
+            fetch(url)
+                .then(res => res.json())
+                .then(logs => {
+                    const tbody = document.querySelector("#logsTable tbody");
+                    tbody.innerHTML = "";
+                    if (logs.length === 0) {
+                        tbody.innerHTML = "<tr><td colspan='4' style='text-align:center; color:gray;'>Действий для данного ID героя не найдено</td></tr>";
+                        return;
+                    }
+                    logs.forEach(l => {
+                        let formatTime = "—";
+                        if(l.createdAt) {
+                            formatTime = new Date(l.createdAt).toLocaleTimeString();
+                        }
+                        tbody.innerHTML += `<tr>
+                            <td>${l.id}</td>
+                            <td>${formatTime}</td>
+                            <td>${l.human ? l.human.name : 'Система'}</td>
+                            <td><strong>${l.actionText}</strong></td>
+                        </tr>`;
+                    });
+                });
+        }
+
+        function clearLogFilter() {
+            document.getElementById("searchHeroIdInput").value = "";
+            loadLogs();
+        }
+
+        function deleteHero(heroId) {
+            if (confirm("Вы уверены, что хотите удалить этого персонажа и всю его историю ходов?")) {
+                fetch(`/api/heroes/${heroId}`, {
+                    method: 'DELETE'
+                }).then(() => {
+                    loadData();
+                });
+            }
+        }
+
+        function updateAvailableSkills() {
+            const actorId = parseInt(document.getElementById("attackerSelect").value);
+            const warriorPanel = document.getElementById("warriorButtons");
+            const healerPanel = document.getElementById("healerButtons");
+
+            if (!actorId) {
+                warriorPanel.style.display = "none";
+                healerPanel.style.display = "none";
+                return;
+            }
+
+            const activeHero = globalHeroes.find(h => h.id === actorId);
+
+            if (activeHero && activeHero.heroType === 'Warrior') {
+                warriorPanel.style.display = "flex";
+                healerPanel.style.display = "none";
+            } else if (activeHero && activeHero.heroType === 'Healer') {
+                warriorPanel.style.display = "none";
+                healerPanel.style.display = "flex";
+            }
+        }
+
+        function executeAction(actionType) {
+            const actorId = document.getElementById("attackerSelect").value;
+            const targetId = document.getElementById("targetSelect").value;
+
+            if(!actorId) return alert("Выберите, кто совершает действие!");
+            if(['attack', 'heal', 'resurrect', 'magicAttack'].includes(actionType) && !targetId) {
+                return alert("Выберите цель для этого действия!");
+            }
+
+            fetch(`/api/battle/skill?actorId=${actorId}&targetId=${targetId || 0}&action=${actionType}`, {
+                method: 'POST'
+            }).then(() => {
+                loadData();
+            });
+        }
+
+        function getGeneralData() {
+            return {
+                name: document.getElementById("heroName").value || "Безымянный герой",
+                level: Math.max(1, parseInt(document.getElementById("heroLevel").value) || 1),
+                hp: Math.max(0, parseInt(document.getElementById("heroHp").value) || 100),
+                position: 0, 
+                damage: Math.max(0, parseInt(document.getElementById("heroDamage").value) || 15)
+            };
+        }
+
+        function addWarrior() {
+            const data = { ...getGeneralData(), weapon: document.getElementById("wWeapon").value || "Меч", hasBuff: document.getElementById("wBuff").checked };
+            fetch('/api/warriors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            }).then(() => { closeModal(); loadData(); });
+        }
+
+        function addHealer() {
+            const data = { ...getGeneralData(), healPower: Math.max(0, parseInt(document.getElementById("hPower").value) || 20), canResurrect: document.getElementById("hResurrect").checked };
+            fetch('/api/healers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            }).then(() => { closeModal(); loadData(); });
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById("heroModal")) closeModal();
+        }
+    </script>
+</body>
+</html>

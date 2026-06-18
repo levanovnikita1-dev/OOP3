@@ -1,0 +1,10 @@
+org\example\WebAPI\MainApplication.class
+org\example\AppDataAPI\HumanRepository.class
+org\example\Class\Healer.class
+org\example\Class\Human.class
+org\example\AppDataAPI\ActionLogRepository.class
+org\example\WebAPI\Controllers\HomeController.class
+org\example\WebAPI\Controllers\ClubController.class
+org\example\Class\ActionLog.class
+org\example\Class\Warrior.class
+org\example\AppDataAPI\ClubService.class
